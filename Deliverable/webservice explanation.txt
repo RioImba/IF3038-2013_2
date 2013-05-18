@@ -1,8 +1,0 @@
-Penjelasan Web Service
-
-Web service yang digunakan memanfaatkan servis pada www.appfog.com
-Kami memisahkan web service yang tersedia ke dalam 2 folder -> rest dan soap
-Hal ini dilakukan karena terdapat .htaccess pada folder rest sehingga jika disatukan, bisa mengganggu keberlangsungan protokol soap
-
-Secara singkat, pada REST, kami menangani semua permintaan dengan script api.php. Sedangkan pada soap, kita harus membuat SoapClient yang menggunakan wsdl pada web services
-(nicholasrio.ap01.aws.af.cm/soap/services.wsdl)
