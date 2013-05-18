@@ -54,7 +54,7 @@ public class Server2 extends Thread
     public void run()
     {
         String username = "";
-        
+        RepositoryConnection RC = new RepositoryConnection();
         System.out.println ("New Communication Thread Started");
         
         try { 
@@ -76,7 +76,8 @@ public class Server2 extends Thread
                  } 
                  else if ( (req_parts[0].equals("login")) && (req_parts.length == 3) ) {
                      //login;username;password
-                     if (("admin".contains(req_parts[1])) && ("admin".contains(req_parts[2]))) {
+                     boolean flag = RC.login(req_parts[1], req_parts[2]);
+                     if (flag) {
                          username = req_parts[1];
                          out.println("success");
                      }
@@ -87,7 +88,8 @@ public class Server2 extends Thread
                  else if ( (req_parts[0].equals("check")) && (req_parts.length == 3) ) {
                      //check;id_task;timestamp
                      if (!"".equals(username)) {
-                         out.println("Task : " + req_parts[1] + " is checked. Timestamp : " + req_parts[2]);
+                         RC.changeStatus(req_parts[1], 1);
+                         out.println("success");
                      }
                      else {
                          out.println("Please log in first");
@@ -96,19 +98,16 @@ public class Server2 extends Thread
                  else if ( (req_parts[0].equals("uncheck"))  && (req_parts.length == 3) ){
                      //uncheck;id_task;timestamp
                      if (!"".equals(username)) {
-                         out.println("Task : " + req_parts[1] + " is unchecked. Timestamp : " + req_parts[2]);
+                         RC.changeStatus(req_parts[1], 0);
+                         out.println("success");
                      }
                      else {
                          out.println("Please log in first");
                      }
                  }
-                 else if ( (req_parts[0].equals("getlist"))  && (req_parts.length == 2) ) {
-                     //getlist;username
+                 else if ( (req_parts[0].equals("getlist"))  && (req_parts.length == 1) ) {
                      if (!"".equals(username)) {
-                         out.println(
-                                 "list;task_id_1;task_name_1;rio#sharon#stefan;tag1#tag2#tag2#tag3;category_1;status_1@"
-                                 + "list;task_id_2;task_name_2;rio#sharon#stefan;tag1#tag2#tag2#tag3;category_2;status_2@"
-                                 + "list;task_id_3;task_name_3;rio#sharon#stefan;tag1#tag2#tag2#tag3;category_3;status_3");
+                         out.println( RC.getList(username) );
                      }
                      else {
                          out.println("Please log in first");
@@ -126,7 +125,6 @@ public class Server2 extends Thread
         catch (IOException e) 
         { 
             System.err.println("Problem with Communication Server");
-            System.exit(1); 
         } 
     }
 } 
