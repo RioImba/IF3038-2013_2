@@ -80,21 +80,22 @@ public class RepositoryConnection {
     public String getList(String username) throws IOException {
         String completeURL = showTaskURL + "?username=" + username + "&q=0";
         String response = getResponseText(completeURL);
+        System.out.println(response);
         StringWriter content = new StringWriter();
         //list - taskid - taskname - assignee - tag - category - status (seharusnya)
-        //System.out.println(response);
         String[] data = response.split("<br>");
         for (String datasplit : data) {
             String[] list = datasplit.split(",");
             System.out.println(list.length);
-            if (list.length == 7) {
+            if (list.length == 8) {
                 content.write("list;");
                 content.write(list[3] + ";");//taskid
                 content.write(list[0] + ";");//taskname
-                content.write(list[6].replaceAll(";", "#") + ";");//assignee
-                content.write(list[5].replaceAll(";", "#") + ";");//tags
-                content.write("dummy" + ";");//category
-                content.write(list[2]);//status
+                content.write(list[7].replaceAll(";", "#") + ";");//assignee
+                content.write(list[6].replaceAll(";", "#") + ";");//tags
+                content.write(list[4] + ";");//category
+                content.write(list[2] + ";");//status
+                content.write(list[1]); //deadline
                 content.write("@");//splitter
             }
         }

@@ -89,10 +89,11 @@ public class Client2 {
                     } else if ((req_parts[0].equals("uncheck")) && (req_parts.length == 3)) {
                         //uncheck;id_task;timestamp                
                         //check if response = success / failed
-                    } else if ((req_parts[0].equals("getlist")) && (req_parts.length == 1)) {
+                    } else if ((req_parts[0].equals("getlist")) && (req_parts.length == 2)) {
                         //getlist
-                        String[] task_list = response.split("@");
+                        System.out.println("query :   getlist;" + req_parts[1]);
 
+                        String[] task_list = response.split("@");
                         for (int j = 0; j < task_list.length; j++) {
                             System.out.println(task_list[j]);
                             String[] task = task_list[j].split(";");

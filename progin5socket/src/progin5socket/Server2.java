@@ -86,28 +86,18 @@ public class Server2 extends Thread
                      }
                  }
                  else if ( (req_parts[0].equals("check")) && (req_parts.length == 3) ) {
-                     //check;id_task;timestamp
-                     if (!"".equals(username)) {
-                         RC.changeStatus(req_parts[1], 1);
-                         out.println("success");
-                     }
-                     else {
-                         out.println("Please log in first");
-                     }
+                    //check;id_task;timestamp
+                    RC.changeStatus(req_parts[1], 1);
+                    out.println("success");
                  }
                  else if ( (req_parts[0].equals("uncheck"))  && (req_parts.length == 3) ){
-                     //uncheck;id_task;timestamp
-                     if (!"".equals(username)) {
-                         RC.changeStatus(req_parts[1], 0);
-                         out.println("success");
-                     }
-                     else {
-                         out.println("Please log in first");
-                     }
+                    //uncheck;id_task;timestamp
+                    RC.changeStatus(req_parts[1], 0);
+                    out.println("success");
                  }
-                 else if ( (req_parts[0].equals("getlist"))  && (req_parts.length == 1) ) {
-                     if (!"".equals(username)) {
-                         out.println( RC.getList(username) );
+                 else if ( (req_parts[0].equals("getlist"))  && (req_parts.length == 2) ) {
+                     if (!"".equals(req_parts[1])) {
+                         out.println(RC.getList(req_parts[1]));
                      }
                      else {
                          out.println("Please log in first");
