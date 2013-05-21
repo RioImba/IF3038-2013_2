@@ -9,6 +9,7 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.PrintWriter;
 import java.net.Socket;
+import java.net.UnknownHostException;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.logging.Level;
@@ -19,39 +20,95 @@ import javax.swing.table.DefaultTableModel;
 import javax.swing.table.TableModel;
 
 public class ClientForm extends javax.swing.JFrame {
+
     String username;
     Socket echoSocket = null;
     String serverHostname = "127.0.0.1";
+    String[] idtask;
     Object[][] data; //awalnya ga d final
-    
-    int jumlah_task = 0; 
-
+    int jumlah_task = 0;
     boolean[] statuslist;
-    
-        public void setUsername(String user){
+
+    public void setUsername(String user) {
         this.username = user;
         jLabel1.setText("Welcome to BANG!!!, " + username);
     }
-    
-    public void setEchoSocket (Socket echoSocket) {
+
+    public void setEchoSocket(Socket echoSocket) {
         this.echoSocket = echoSocket;
         System.out.println("Echo Socket : " + echoSocket);
         updateTable();
     }
-    
-    public void updateTable() {
+
+    public boolean connectToServer(String serverHostname) {
         try {
+            this.echoSocket = new Socket(serverHostname, 2222);
+            System.out.println("Attemping to connect to host " + serverHostname + " on port 2222.");
+            return true;
+        } catch (UnknownHostException ex) {
+            //Logger.getLogger(Client2.class.getName()).log(Level.SEVERE, null, ex);
+            return false;
+        } catch (IOException ex) {
+            //Logger.getLogger(Client2.class.getName()).log(Level.SEVERE, null, ex);
+            return false;
+        }
+    }
+
+    public void updateTable() {
+        //1st part -> try to sync if there are something in ToBeUpdated.txt
+        try {
+            boolean flag = connectToServer(serverHostname);
+            if (flag) {
+                PrintWriter out = new PrintWriter(echoSocket.getOutputStream(), true);
+                BufferedReader in = new BufferedReader(new InputStreamReader(echoSocket.getInputStream()));
+                BufferedReader br = new BufferedReader(new FileReader("ToBeUpdated.txt"));
+                String line;
+                while ((line = br.readLine()) != null) {
+                    String[] data = line.split(";");
+                    System.out.println(data[0] + ";" + data[2]);
+                    if (data.length >= 3) {
+                        if (data[1].equals("true")) {
+                            System.out.println("Checking data...");
+                            out.println("check;" + data[0] + ";" + data[2]);
+                            out.flush();
+                        } else {
+                            System.out.println("Unchecking data...");
+                            out.println("uncheck;" + data[0] + ";" + data[2]);
+                            out.flush();
+                        }
+                        System.out.println(in.readLine());
+                    }
+                }
+                br.close();
+                out.close();
+                in.close();
+            }
+            File F = new File("ToBeUpdated.txt");
+            FileWriter fw = new FileWriter(F.getAbsolutePath());
+            PrintWriter pw = new PrintWriter(fw);
+            pw.print("");
+            fw.close();
+            pw.close();
+        } catch (FileNotFoundException ex) {
+            System.out.println("File not found");
+        } catch (IOException ex) {
+            System.out.println("Can't write to file");
+        }
+
+        //2nd part
+        try {
+            connectToServer(serverHostname);
             PrintWriter out = new PrintWriter(echoSocket.getOutputStream(), true);
             BufferedReader in = new BufferedReader(new InputStreamReader(echoSocket.getInputStream()));
             
             System.out.println("get task list : username = " + username);
-            out.println("getlist;"+username);
-            
+            out.println("getlist;" + username);//Asking for list
+
             String response = in.readLine();
-            
+
             String[] task_list = response.split("@");
             jumlah_task = task_list.length;
-            
+
             String[] columnNames = new String[6];
             columnNames[0] = "Nama Tugas";
             columnNames[1] = "Deadline";
@@ -59,21 +116,18 @@ public class ClientForm extends javax.swing.JFrame {
             columnNames[3] = "Tag";
             columnNames[4] = "Status";
             columnNames[5] = "Kategori";
-            
+
             //banyaknya row tergantung dr kiriman server, assign smua nilai ke data[][]
             data = new Object[jumlah_task][6];
             statuslist = new boolean[jumlah_task];
-//            for (int i = 0; i < jumlah_task; i++) {
-//                //data[i][0] = new String();
-//                data[i][4] = new Boolean(false);
-//                
-//            }
-            
+            idtask = new String[jumlah_task];
+
             for (int j = 0; j < task_list.length; j++) {
                 System.out.println(task_list[j]);
                 String[] task = task_list[j].split(";");
 
-                System.out.println("Task id : " + task[1]);
+                idtask[j] = task[1];
+                System.out.println("Task id : " + idtask[j]);
                 System.out.println("Task name : " + task[2]);
                 String[] assignee = task[3].split("#");
                 System.out.println("Assignee : ");
@@ -91,19 +145,21 @@ public class ClientForm extends javax.swing.JFrame {
                 System.out.println("Status : " + task[6]);
                 System.out.println("Deadline : " + task[7]);
                 System.out.println("");
-                
+
                 data[j][0] = task[2];
                 data[j][1] = task[7]; //deadline
-                data[j][2] = task[3].replaceAll("#",","); //assignee
-                data[j][3] = task[4].replaceAll("#",","); //tag
+                data[j][2] = task[3].replaceAll("#", ","); //assignee
+                data[j][3] = task[4].replaceAll("#", ","); //tag
                 if ("1".equals(task[6])) //status
+                {
                     data[j][4] = new Boolean(true);
-                else 
+                } else {
                     data[j][4] = new Boolean(false);
+                }
                 statuslist[j] = (boolean) data[j][4];
                 data[j][5] = task[5]; //kategori
-            } 
-            
+            }
+
             jTable1.setModel(new DefaultTableModel(data, columnNames) {
                 Class[] types = new Class[]{
                     java.lang.String.class, java.lang.String.class, java.lang.String.class, java.lang.String.class, java.lang.Boolean.class, java.lang.String.class
@@ -122,60 +178,108 @@ public class ClientForm extends javax.swing.JFrame {
             });
             jScrollPane1.setViewportView(jTable1);
 
-        }
-        catch (IOException e) {
+            jTable1.getModel().addTableModelListener(new TableModelListener() {
+                @Override
+                public void tableChanged(TableModelEvent e) {
+                    System.out.println("value Changed");
+                    
+                    TableModel model = jTable1.getModel();
+                    //model.setValueAt("Sharon", 0, 0);
+                    String[] timestamp_container = new String[model.getRowCount()];
+
+                    boolean[] check_list = new boolean[model.getRowCount()]; //awalny ga d final
+                    for (int i = 0; i < model.getRowCount(); i++) {
+                        check_list[i] = statuslist[i];
+                    }
+
+                    for (int i = 0; i < model.getRowCount(); i++) {
+                        statuslist[i] = (boolean) model.getValueAt(i, 4);
+                        if (check_list[i] != (boolean) model.getValueAt(i, 4)) {
+                            timestamp_container[i] = getTimestamp();
+                            try {
+                                PrintWriter out = new PrintWriter(echoSocket.getOutputStream(), true);
+                                BufferedReader in = new BufferedReader(new InputStreamReader(echoSocket.getInputStream()));
+                                if ((boolean) model.getValueAt(i, 4)) {
+                                    out.println("check;" + idtask[i] + ";" + timestamp_container[i]);
+                                } else {
+                                    out.println("uncheck;" + idtask[i] + ";" + timestamp_container[i]);
+                                }
+                                String response = in.readLine();
+                                System.out.println(response);
+                            } catch (IOException ex) {
+                                System.out.println("Cant input data / network connection problem");
+                                try {
+                                    String log_container = readFromFile("ToBeUpdated.txt");
+                                    writeToBeUpdated(jTable1, timestamp_container, log_container);
+                                } catch (IOException ioex) {
+                                    System.out.println("File not found");
+                                }
+                            }
+                        }
+                    }
+
+                    try {
+                        String log_container = readFromFile("LogFile.txt");
+                        writeLogFile(jTable1, timestamp_container, log_container);
+                    } catch (IOException ex) {
+                        Logger.getLogger(ClientForm.class.getName()).log(Level.SEVERE, null, ex);
+                    }
+                    //throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
+                }
+            });
+
+        } catch (IOException e) {
             System.out.println("Can't connect to server");
         }
     }
-    
+
     public ClientForm() {
         initComponents();
 
-//        String[] columnNames = new String[6];
-//        columnNames[0] = "Nama Tugas";
-//        columnNames[1] = "Deadline";
-//        columnNames[2] = "Daftar Assignee";
-//        columnNames[3] = "Tag";
-//        columnNames[4] = "Status";
-//        columnNames[5] = "Kategori";
-        
-//        //banyaknya row tergantung dr kiriman server, assign smua nilai ke data[][]
-//        data = new Object[4][6];
-//        statuslist = new boolean[4];
-//        for (int i = 0; i < 4; i++) {
-//            data[i][4] = new Boolean(false);
-//            statuslist[i] = false;
-//        }
-//        
-//        jTable1.setModel(new DefaultTableModel(data, columnNames) {
-//            Class[] types = new Class[]{
-//                java.lang.String.class, java.lang.String.class, java.lang.String.class, java.lang.String.class, java.lang.Boolean.class, java.lang.String.class
-//            };
-//            boolean[] canEdit = new boolean[]{
-//                false, false, false, false, true, false
-//            };
-//
-//            public Class getColumnClass(int columnIndex) {
-//                return types[columnIndex];
-//            }
-//
-//            public boolean isCellEditable(int rowIndex, int columnIndex) {
-//                return canEdit[columnIndex];
-//            }
-//        });
-//        jScrollPane1.setViewportView(jTable1);
+        String[] columnNames = new String[6];
+        columnNames[0] = "Nama Tugas";
+        columnNames[1] = "Deadline";
+        columnNames[2] = "Daftar Assignee";
+        columnNames[3] = "Tag";
+        columnNames[4] = "Status";
+        columnNames[5] = "Kategori";
 
-//        TableModel model = jTable1.getModel();
-//        int row_count = model.getRowCount();
-//        final boolean[] check_list = new boolean[row_count]; //awalny ga d final
-//        for(int i = 0; i < row_count; i++){
-//            check_list[i] = (boolean) data[i][4];
-//            System.out.println("check list = "+check_list[i]);
-//        }
+        //banyaknya row tergantung dr kiriman server, assign smua nilai ke data[][]
+        data = new Object[4][6];
+        statuslist = new boolean[4];
+        for (int i = 0; i < 4; i++) {
+            data[i][4] = new Boolean(false);
+            statuslist[i] = false;
+        }
+
+        jTable1.setModel(new DefaultTableModel(data, columnNames) {
+            Class[] types = new Class[]{
+                java.lang.String.class, java.lang.String.class, java.lang.String.class, java.lang.String.class, java.lang.Boolean.class, java.lang.String.class
+            };
+            boolean[] canEdit = new boolean[]{
+                false, false, false, false, true, false
+            };
+
+            public Class getColumnClass(int columnIndex) {
+                return types[columnIndex];
+            }
+
+            public boolean isCellEditable(int rowIndex, int columnIndex) {
+                return canEdit[columnIndex];
+            }
+        });
+        jScrollPane1.setViewportView(jTable1);
+
+        TableModel model = jTable1.getModel();
+        int row_count = model.getRowCount();
+        final boolean[] check_list = new boolean[row_count]; //awalny ga d final
+        for (int i = 0; i < row_count; i++) {
+            check_list[i] = (boolean) data[i][4];
+            System.out.println("check list = " + check_list[i]);
+        }
 
         //selama program masi jalan, maka:
-        jTable1.getModel().addTableModelListener(new TableModelListener(){
-
+        jTable1.getModel().addTableModelListener(new TableModelListener() {
             @Override
             public void tableChanged(TableModelEvent e) {
                 System.out.println("value Changed");
@@ -192,6 +296,20 @@ public class ClientForm extends javax.swing.JFrame {
                     statuslist[i] = (boolean) model.getValueAt(i, 4);
                     if (check_list[i] != (boolean) model.getValueAt(i, 4)) {
                         timestamp_container[i] = getTimestamp();
+                        try {
+                            //connectToServer(serverHostname);
+                            PrintWriter out = new PrintWriter(echoSocket.getOutputStream(), true);
+                            BufferedReader in = new BufferedReader(new InputStreamReader(echoSocket.getInputStream()));
+                            if ((boolean) model.getValueAt(i, 4)) {
+                                out.println("check;" + idtask[i] + ";" + timestamp_container[i]);
+                            } else {
+                                out.println("uncheck;" + idtask[i] + ";" + timestamp_container[i]);
+                            }
+                            String response = in.readLine();
+                            System.out.println(response);
+                        } catch (IOException ex) {
+                            System.out.println("Cant input data / network connection problem");
+                        }
                     }
                 }
 
@@ -321,6 +439,7 @@ public class ClientForm extends javax.swing.JFrame {
     }// </editor-fold>//GEN-END:initComponents
 
     private void jButton1MouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_jButton1MouseClicked
+        //SYNC BUTTON
         updateTable();
     }//GEN-LAST:event_jButton1MouseClicked
 
@@ -330,6 +449,10 @@ public class ClientForm extends javax.swing.JFrame {
 
     private void jButton2ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_jButton2ActionPerformed
         // TODO add your handling code here:
+        this.setVisible(false);
+        Login L = new Login();
+        L.setVisible(true);
+        dispose();
     }//GEN-LAST:event_jButton2ActionPerformed
 
     public String getTimestamp() {
@@ -356,36 +479,38 @@ public class ClientForm extends javax.swing.JFrame {
             } finally {
                 br.close();
             }
-        }catch(FileNotFoundException ex){
+        } catch (FileNotFoundException ex) {
             System.out.println("File not found");
             return "";
-        }catch(IOException ex){
+        } catch (IOException ex) {
             System.out.println("Cant read from file");
             return "";
         }
     }
 
-//    public void writeToBeUpdated(javax.swing.JTable Table, String[] timestamp) throws IOException {
-//        //error krn belom smua bs msk.. cmn yg trakhir aj yg ktulis
-//        TableModel model = Table.getModel();
-//        FileWriter fw = new FileWriter("ToBeUpdated.txt");
-//        PrintWriter pw = new PrintWriter(fw);
-//        for (int i = 0; i < model.getRowCount(); i++) {
-//            if (timestamp[i] != null) {
-//                pw.print("ID Task");
-//                pw.print(";");
-//                pw.print(model.getValueAt(i, 4));
-//                System.out.println("Value at row " + i + " = " + model.getValueAt(i, 4));
-//                pw.print(";");
-//                pw.print(timestamp[i]);
-//                pw.print(";");
-//                pw.println();
-//                pw.flush();
-//            }
-//        }
-//        pw.close();
-//        fw.close();
-//    }
+    public void writeToBeUpdated(javax.swing.JTable Table, String[] timestamp, String log_container) throws IOException {
+        //error krn belom smua bs msk.. cmn yg trakhir aj yg ktulis
+        TableModel model = Table.getModel();
+        File F = new File("ToBeUpdated.txt");
+        FileWriter fw = new FileWriter(F.getAbsolutePath());
+        PrintWriter pw = new PrintWriter(fw);
+        pw.print(log_container);
+        for (int i = 0; i < model.getRowCount(); i++) {
+            if (timestamp[i] != null) {
+                pw.print(idtask[i]);
+                pw.print(";");
+                pw.print(model.getValueAt(i, 4));
+                System.out.println("Value at row " + i + " = " + model.getValueAt(i, 4));
+                pw.print(";");
+                pw.print(timestamp[i]);
+                pw.print(";");
+                pw.println();
+                pw.flush();
+            }
+        }
+        pw.close();
+        fw.close();
+    }
 
     public void writeLogFile(javax.swing.JTable Table, String[] timestamp, String log_container) throws IOException {
         //error krn belom smua bs msk.. cmn yg trakhir aj yg ktulis
@@ -395,8 +520,8 @@ public class ClientForm extends javax.swing.JFrame {
         PrintWriter pw = new PrintWriter(fw);
         pw.print(log_container);
         for (int i = 0; i < model.getRowCount(); i++) {
-            if(timestamp[i] != null){
-                pw.print("ID Task");
+            if (timestamp[i] != null) {
+                pw.print(idtask[i]);
                 pw.print(";");
                 pw.print(model.getValueAt(i, 4));
                 System.out.println("Value at row " + i + " = " + model.getValueAt(i, 4));
